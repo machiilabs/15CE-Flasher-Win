@@ -1,0 +1,29 @@
+---
+description: main is the protected release branch. Branching, merging, and release rules.
+alwaysApply: true
+---
+
+# main is the release branch
+
+Every 15CE Flasher for Windows release is built from `main`. GitHub protects it ("Protect main" ruleset): no direct pushes, no force pushes, and changes arrive only through pull requests the user merges.
+
+## Never, without the user's explicit words for this exact action
+
+- Merge, push, rebase, or tag on `main`. "commit", "push", "build", or finishing a task is not permission.
+- Upload to downloads.machiilabs.com, or overwrite a file that is already there.
+- Change what machiilabs.com offers for download.
+
+## Every new branch starts from origin/main
+
+```bash
+git fetch origin main
+git switch -c <name> origin/main
+```
+
+Check it before proposing a merge: `git log --oneline origin/main..<branch>` must list only that task's commits.
+
+## Shipping a release
+
+1. Merge the release work through a pull request the user approves.
+2. Publish and upload the exe only when the user says to ship it.
+3. The site change lives in the machiilabs.com repo on a `flasher-win-X.Y.Z` branch. It reaches the live site through a pull request labeled `ship:flasher-win-X.Y.Z`, which the user merges. That repo's release check fails if the Flasher page, guide, and download URL disagree.
