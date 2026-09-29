@@ -180,3 +180,84 @@ internal sealed class FixedPortListing(IReadOnlyList<SerialPortInfo> ports) : IS
 {
     public IReadOnlyList<SerialPortInfo> ListPorts() => ports;
 }
+
+public class KnownFirmwareTests
+{
+    [Fact]
+    public void EmbeddedListLoads()
+    {
+        Assert.NotEmpty(KnownFirmware.All);
+        Assert.Equal("15c", KnownFirmware.Find(0x9090)?.Model);
+        Assert.Equal("16c", KnownFirmware.Find(0x0E0E)?.Model);
+        Assert.Null(KnownFirmware.Find(0x1234));
+    }
+
+    [Fact]
+    public void EveryChecksumRepeatsItsByte()
+    {
+        // The calculator shows the 8-bit sum twice, so a real checksum is always 0xXYXY.
+        foreach (var entry in KnownFirmware.All)
+            Assert.Equal(entry.Checksum >> 8, entry.Checksum & 0xFF);
+    }
+
+    [Theory]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c","description":"a"},{"checksum":"9090","model":"15c","description":"b"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15C","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0xZZ","model":"15c","description":"a"}]}""")]
+    public void ParseRejectsBadLists(string json)
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
+        Assert.Throws<FormatException>(() => KnownFirmware.Parse(stream));
+    }
+}
+
+public class FirmwareAssessmentTests
+{
+    private static BackupChecksumAssessment Backup(ushort checksum) => new(checksum);
+
+    [Fact]
+    public void BackupNamesKnownFirmware()
+    {
+        var backup = Backup(0x0A0A);
+        Assert.NotNull(backup.Known);
+        Assert.Contains("June 2024", backup.Message);
+    }
+
+    [Fact]
+    public void BackupOfUnlistedFirmwareIsNotBlamedOnTheUser()
+    {
+        var backup = Backup(0x1212);
+        Assert.Null(backup.Known);
+        Assert.Contains("not in the list of known versions", backup.Message);
+    }
+
+    [Theory]
+    [InlineData(0x0A0A, 0x0A0A, FirmwareFileKind.AlreadyOnCalculator)]
+    [InlineData(0x9090, 0x3B3B, FirmwareFileKind.Known)]
+    [InlineData(0x0A0A, 0x9090, FirmwareFileKind.Known)]
+    [InlineData(0x9090, 0x0E0E, FirmwareFileKind.OtherModel)]
+    [InlineData(0x0E0E, 0x0A0A, FirmwareFileKind.OtherModel)]
+    [InlineData(0x1212, 0x0E0E, FirmwareFileKind.Known)]
+    [InlineData(0x9090, 0x1212, FirmwareFileKind.Unrecognized)]
+    public void FirmwareFileAgainstBackup(int onCalculator, int file, FirmwareFileKind expected)
+    {
+        var assessment = new FirmwareFileAssessment((ushort)file, Backup((ushort)onCalculator));
+        Assert.Equal(expected, assessment.Kind);
+    }
+
+    [Fact]
+    public void SkippedBackupAsksTheUserToCheckTheModel()
+    {
+        var assessment = new FirmwareFileAssessment(0x0E0E, backup: null);
+        Assert.Equal(FirmwareFileKind.Known, assessment.Kind);
+        Assert.Contains("Make sure your calculator is an HP 16c", assessment.Message);
+    }
+
+    [Fact]
+    public void OtherModelNamesBothModels()
+    {
+        var assessment = new FirmwareFileAssessment(0x0E0E, Backup(0x9090));
+        Assert.Contains("16c Collector’s Edition original firmware", assessment.Message);
+        Assert.Contains("Your calculator has HP 15c firmware", assessment.Message);
+    }
+}

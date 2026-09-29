@@ -2,9 +2,6 @@ namespace FifteenCEFlasherCore;
 
 public static class VoyagerFirmwareChecksum
 {
-    public const ushort FactoryDisplayed = 0x9090;
-    public const ushort Official2024Displayed = 0x0A0A;
-
     public static ushort DisplayedValue(byte[] data)
     {
         var payload = TrimTrailingZeros(data);
@@ -39,45 +36,27 @@ public static class VoyagerFirmwareChecksum
     }
 }
 
-public enum BackupChecksumKind
-{
-    FactoryOriginal,
-    Official2024,
-    Unrecognized,
-}
-
 public sealed class BackupChecksumAssessment
 {
-    public BackupChecksumKind Kind { get; }
     public ushort Displayed { get; }
+
+    /// <summary>The firmware now on the calculator, when its checksum is in the known list.</summary>
+    public KnownFirmwareEntry? Known { get; }
 
     public BackupChecksumAssessment(ushort displayed)
     {
         Displayed = displayed;
-        Kind = displayed switch
-        {
-            VoyagerFirmwareChecksum.FactoryDisplayed => BackupChecksumKind.FactoryOriginal,
-            VoyagerFirmwareChecksum.Official2024Displayed => BackupChecksumKind.Official2024,
-            _ => BackupChecksumKind.Unrecognized,
-        };
+        Known = KnownFirmware.Find(displayed);
     }
-
-    public bool IsRecognized => Kind is BackupChecksumKind.FactoryOriginal or BackupChecksumKind.Official2024;
 
     public string Message
     {
         get
         {
             var label = VoyagerFirmwareChecksum.Formatted(Displayed);
-            return Kind switch
-            {
-                BackupChecksumKind.FactoryOriginal =>
-                    $"Checksum {label}. This is the recognized factory installed firmware. It is safe to proceed.",
-                BackupChecksumKind.Official2024 =>
-                    $"Checksum {label}: This is a recognized version of the firmware. It is safe to proceed.",
-                _ =>
-                    $"Checksum {label}. This is not a recognized firmware version. If you know you are currently using a custom version of the firmware, proceed at your own risk. If you are currently using the factory installed firmware, there may be a problem with the backup.",
-            };
+            return Known is not null
+                ? $"Checksum {label}: {Known.Description}. It is safe to proceed."
+                : $"Checksum {label}. This firmware is not in the list of known versions. If your calculator runs firmware that isn't listed yet, or a custom version, proceed at your own risk. If it runs a listed version, there may be a problem with the backup.";
         }
     }
 }
@@ -85,9 +64,8 @@ public sealed class BackupChecksumAssessment
 public enum FirmwareFileKind
 {
     AlreadyOnCalculator,
-    KnownLatest,
-    DowngradeToFactory,
-    FactoryNotLatest,
+    Known,
+    OtherModel,
     Unrecognized,
 }
 
@@ -96,26 +74,27 @@ public sealed class FirmwareFileAssessment
     public FirmwareFileKind Kind { get; }
     public ushort Displayed { get; }
 
+    /// <summary>The chosen file, when its checksum is in the known list.</summary>
+    public KnownFirmwareEntry? Known { get; }
+
+    /// <summary>The firmware on the calculator, from the backup. Null when the backup was skipped or is not listed.</summary>
+    public KnownFirmwareEntry? OnCalculator { get; }
+
     public FirmwareFileAssessment(ushort displayed, BackupChecksumAssessment? backup)
     {
         Displayed = displayed;
+        Known = KnownFirmware.Find(displayed);
+        OnCalculator = backup?.Known;
+
         if (backup is not null && backup.Displayed == displayed)
-        {
             Kind = FirmwareFileKind.AlreadyOnCalculator;
-            return;
-        }
-
-        Kind = displayed switch
-        {
-            VoyagerFirmwareChecksum.Official2024Displayed => FirmwareFileKind.KnownLatest,
-            VoyagerFirmwareChecksum.FactoryDisplayed when backup?.Kind == BackupChecksumKind.Official2024 =>
-                FirmwareFileKind.DowngradeToFactory,
-            VoyagerFirmwareChecksum.FactoryDisplayed => FirmwareFileKind.FactoryNotLatest,
-            _ => FirmwareFileKind.Unrecognized,
-        };
+        else if (Known is null)
+            Kind = FirmwareFileKind.Unrecognized;
+        else if (OnCalculator is not null && OnCalculator.Model != Known.Model)
+            Kind = FirmwareFileKind.OtherModel;
+        else
+            Kind = FirmwareFileKind.Known;
     }
-
-    public bool IsCaution => Kind != FirmwareFileKind.KnownLatest;
 
     public string Message
     {
@@ -126,14 +105,14 @@ public sealed class FirmwareFileAssessment
             {
                 FirmwareFileKind.AlreadyOnCalculator =>
                     $"Checksum {label}. This firmware is already on the calculator. You don't need to install it again.",
-                FirmwareFileKind.KnownLatest =>
-                    $"Checksum {label}. This is the latest known firmware version. It is safe to proceed.",
-                FirmwareFileKind.DowngradeToFactory =>
-                    $"Checksum {label}. This is the factory-installed firmware. The calculator currently has a newer recognized version. Are you sure you want to install it?",
-                FirmwareFileKind.FactoryNotLatest =>
-                    $"Checksum {label}. This is the factory-installed firmware. It is not the latest known version. Are you sure you want to install it?",
+                FirmwareFileKind.OtherModel =>
+                    $"Checksum {label}: {Known!.Description}. Your calculator has {OnCalculator!.ModelName} firmware, so this file is for a different model. Are you sure you want to install it?",
+                FirmwareFileKind.Known when OnCalculator is null =>
+                    $"Checksum {label}: {Known!.Description}. Make sure your calculator is an {Known.ModelName}.",
+                FirmwareFileKind.Known =>
+                    $"Checksum {label}: {Known!.Description}. It is safe to proceed.",
                 _ =>
-                    $"Checksum {label}. This is not a known firmware version. You may have selected the wrong file, or firmware meant for a different calculator. Are you sure you want to install it?",
+                    $"Checksum {label}. This firmware is not in the list of known versions. Make sure it is made for your calculator's model. Are you sure you want to install it?",
             };
         }
     }
