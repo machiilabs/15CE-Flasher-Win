@@ -187,8 +187,8 @@ public class KnownFirmwareTests
     public void EmbeddedListLoads()
     {
         Assert.NotEmpty(KnownFirmware.All);
-        Assert.Equal("15c", KnownFirmware.Find(0x9090)?.Model);
-        Assert.Equal("16c", KnownFirmware.Find(0x0E0E)?.Model);
+        Assert.Equal("15c Collector’s Edition", KnownFirmware.Find(0x9090)?.Model);
+        Assert.Equal("16c Collector’s Edition", KnownFirmware.Find(0x0E0E)?.Model);
         Assert.Null(KnownFirmware.Find(0x1234));
     }
 
@@ -201,9 +201,11 @@ public class KnownFirmwareTests
     }
 
     [Theory]
-    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c","description":"a"},{"checksum":"9090","model":"15c","description":"b"}]}""")]
-    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15C","description":"a"}]}""")]
-    [InlineData("""{"firmware":[{"checksum":"0xZZ","model":"15c","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","fileName":"x","description":"a"},{"checksum":"9090","model":"15c Collector’s Edition","fileName":"x","description":"b"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15C","fileName":"x","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0xZZ","model":"15c Collector’s Edition","fileName":"x","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","fileName":"HP 15c","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","description":"a"}]}""")]
     public void ParseRejectsBadLists(string json)
     {
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
@@ -214,6 +216,13 @@ public class KnownFirmwareTests
 public class FirmwareAssessmentTests
 {
     private static BackupChecksumAssessment Backup(ushort checksum) => new(checksum);
+
+    [Theory]
+    [InlineData(0x9090, "hp15c-ce-original-9090h-20260929.bin")]
+    [InlineData(0x0E0E, "hp16c-ce-original-0E0Eh-20260929.bin")]
+    [InlineData(0x1212, "firmware-1212h-20260929.bin")]
+    public void DefaultBackupFileName(int checksum, string expected) =>
+        Assert.Equal(expected, Backup((ushort)checksum).DefaultBackupFileName(new DateTime(2026, 9, 29)));
 
     [Fact]
     public void BackupNamesKnownFirmware()
@@ -233,7 +242,6 @@ public class FirmwareAssessmentTests
 
     [Theory]
     [InlineData(0x0A0A, 0x0A0A, FirmwareFileKind.AlreadyOnCalculator)]
-    [InlineData(0x9090, 0x3B3B, FirmwareFileKind.Known)]
     [InlineData(0x0A0A, 0x9090, FirmwareFileKind.Known)]
     [InlineData(0x9090, 0x0E0E, FirmwareFileKind.OtherModel)]
     [InlineData(0x0E0E, 0x0A0A, FirmwareFileKind.OtherModel)]
@@ -258,6 +266,6 @@ public class FirmwareAssessmentTests
     {
         var assessment = new FirmwareFileAssessment(0x0E0E, Backup(0x9090));
         Assert.Contains("16c Collector’s Edition original firmware", assessment.Message);
-        Assert.Contains("Your calculator has HP 15c firmware", assessment.Message);
+        Assert.Contains("Your calculator has HP 15c Collector’s Edition firmware", assessment.Message);
     }
 }

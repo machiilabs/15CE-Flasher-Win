@@ -49,13 +49,17 @@ public sealed class BackupChecksumAssessment
         Known = KnownFirmware.Find(displayed);
     }
 
+    /// <summary>Default name for saving this firmware, for example hp15c-ce-original-9090h-20260929.bin.</summary>
+    public string DefaultBackupFileName(DateTime date) =>
+        $"{Known?.FileName ?? "firmware"}-{VoyagerFirmwareChecksum.Formatted(Displayed)}-{date:yyyyMMdd}.bin";
+
     public string Message
     {
         get
         {
             var label = VoyagerFirmwareChecksum.Formatted(Displayed);
             return Known is not null
-                ? $"Checksum {label}: {Known.Description}. It is safe to proceed."
+                ? $"Checksum {label}: {Known.DisplayName}. It is safe to proceed."
                 : $"Checksum {label}. This firmware is not in the list of known versions. If your calculator runs firmware that isn't listed yet, or a custom version, proceed at your own risk. If it runs a listed version, there may be a problem with the backup.";
         }
     }
@@ -106,11 +110,11 @@ public sealed class FirmwareFileAssessment
                 FirmwareFileKind.AlreadyOnCalculator =>
                     $"Checksum {label}. This firmware is already on the calculator. You don't need to install it again.",
                 FirmwareFileKind.OtherModel =>
-                    $"Checksum {label}: {Known!.Description}. Your calculator has {OnCalculator!.ModelName} firmware, so this file is for a different model. Are you sure you want to install it?",
+                    $"Checksum {label}: {Known!.DisplayName}. Your calculator has {OnCalculator!.ModelName} firmware, so this file is for a different model. Are you sure you want to install it?",
                 FirmwareFileKind.Known when OnCalculator is null =>
-                    $"Checksum {label}: {Known!.Description}. Make sure your calculator is an {Known.ModelName}.",
+                    $"Checksum {label}: {Known!.DisplayName}. Make sure your calculator is an {Known.ModelName}.",
                 FirmwareFileKind.Known =>
-                    $"Checksum {label}: {Known!.Description}. It is safe to proceed.",
+                    $"Checksum {label}: {Known!.DisplayName}. It is safe to proceed.",
                 _ =>
                     $"Checksum {label}. This firmware is not in the list of known versions. Make sure it is made for your calculator's model. Are you sure you want to install it?",
             };

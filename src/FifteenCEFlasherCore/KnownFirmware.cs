@@ -4,10 +4,13 @@ using System.Text.Json;
 namespace FifteenCEFlasherCore;
 
 /// <summary>One firmware the app recognizes by its test-menu checksum.</summary>
-public sealed record KnownFirmwareEntry(ushort Checksum, string Model, string Description)
+public sealed record KnownFirmwareEntry(ushort Checksum, string Model, string FileName, string Description)
 {
-    /// <summary>"HP 15c", "HP 16c", or "HP 12c".</summary>
+    /// <summary>"HP 15c Collector’s Edition", "HP 16c Collector’s Edition", or "HP 12c".</summary>
     public string ModelName => $"HP {Model}";
+
+    /// <summary>Model and version, for example "HP 15c Collector’s Edition original firmware". Description never repeats the model.</summary>
+    public string DisplayName => $"{ModelName} {Description}";
 }
 
 /// <summary>
@@ -16,7 +19,7 @@ public sealed record KnownFirmwareEntry(ushort Checksum, string Model, string De
 /// </summary>
 public static class KnownFirmware
 {
-    public static readonly string[] Models = ["15c", "16c", "12c"];
+    public static readonly string[] Models = ["15c Collector’s Edition", "16c Collector’s Edition", "12c"];
 
     private static readonly Lazy<IReadOnlyList<KnownFirmwareEntry>> Entries = new(Load);
 
@@ -47,10 +50,14 @@ public static class KnownFirmware
             if (!Models.Contains(model))
                 throw new FormatException($"Known firmware model \"{model}\" must be one of {string.Join(", ", Models)}.");
 
+            var fileName = item.TryGetProperty("fileName", out var name) ? name.GetString() ?? "" : "";
+            if (fileName.Length == 0 || !fileName.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-'))
+                throw new FormatException($"Known firmware fileName \"{fileName}\" may use only lowercase letters, digits, and hyphens.");
+
             if (entries.Any(entry => entry.Checksum == checksum))
                 throw new FormatException($"Known firmware checksum {text} is listed twice.");
 
-            entries.Add(new KnownFirmwareEntry(checksum, model, item.GetProperty("description").GetString() ?? ""));
+            entries.Add(new KnownFirmwareEntry(checksum, model, fileName, item.GetProperty("description").GetString() ?? ""));
         }
         return entries;
     }
