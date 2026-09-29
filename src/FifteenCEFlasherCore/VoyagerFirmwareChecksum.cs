@@ -53,16 +53,21 @@ public sealed class BackupChecksumAssessment
     public string DefaultBackupFileName(DateTime date) =>
         $"{Known?.FileName ?? "firmware"}-{VoyagerFirmwareChecksum.Formatted(Displayed)}-{date:yyyyMMdd}.bin";
 
-    public string Message
-    {
-        get
-        {
-            var label = VoyagerFirmwareChecksum.Formatted(Displayed);
-            return Known is not null
-                ? $"Checksum {label}: {Known.DisplayName}. It is safe to proceed."
-                : $"Checksum {label}. This firmware is not in the list of known versions. If your calculator runs firmware that isn't listed yet, or a custom version, proceed at your own risk. If it runs a listed version, there may be a problem with the backup.";
-        }
-    }
+    public bool IsRecognized => Known is not null;
+
+    public string Message =>
+        Known is not null
+            ? $"Checksum {VoyagerFirmwareChecksum.Formatted(Displayed)}: {Known.DisplayName}. It is safe to proceed."
+            : UnlistedMessage;
+
+    /// <summary>The message without "It is safe to proceed.", for showing again after step 3.</summary>
+    public string Summary =>
+        Known is not null
+            ? $"Checksum {VoyagerFirmwareChecksum.Formatted(Displayed)}: {Known.DisplayName}."
+            : UnlistedMessage;
+
+    private string UnlistedMessage =>
+        $"Checksum {VoyagerFirmwareChecksum.Formatted(Displayed)}. This firmware is not in the list of known versions. If your calculator runs firmware that isn’t listed yet, or a custom version, proceed at your own risk. If it runs a listed version, the firmware may not have been read correctly.";
 }
 
 public enum FirmwareFileKind
@@ -108,7 +113,7 @@ public sealed class FirmwareFileAssessment
             return Kind switch
             {
                 FirmwareFileKind.AlreadyOnCalculator =>
-                    $"Checksum {label}. This firmware is already on the calculator. You don't need to install it again.",
+                    $"Checksum {label}. This firmware is already on the calculator. You don’t need to install it again.",
                 FirmwareFileKind.OtherModel =>
                     $"Checksum {label}: {Known!.DisplayName}. Your calculator has {OnCalculator!.ModelName} firmware, so this file is for a different model. Are you sure you want to install it?",
                 FirmwareFileKind.Known when OnCalculator is null =>
@@ -116,8 +121,17 @@ public sealed class FirmwareFileAssessment
                 FirmwareFileKind.Known =>
                     $"Checksum {label}: {Known!.DisplayName}. It is safe to proceed.",
                 _ =>
-                    $"Checksum {label}. This firmware is not in the list of known versions. Make sure it is made for your calculator's model. Are you sure you want to install it?",
+                    $"Checksum {label}. This firmware is not in the list of known versions. Make sure it is made for your calculator’s model. Are you sure you want to install it?",
             };
         }
     }
+
+    /// <summary>Only a listed file checked against listed firmware on the calculator is free of caution.</summary>
+    public bool IsCaution => !(Kind == FirmwareFileKind.Known && OnCalculator is not null);
+
+    /// <summary>The message without "It is safe to proceed.", for showing again on step 5.</summary>
+    public string Summary =>
+        Kind == FirmwareFileKind.Known && OnCalculator is not null
+            ? $"Checksum {VoyagerFirmwareChecksum.Formatted(Displayed)}: {Known!.DisplayName}."
+            : Message;
 }

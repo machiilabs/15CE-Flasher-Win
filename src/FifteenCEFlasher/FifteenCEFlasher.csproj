@@ -8,12 +8,12 @@
     <AssemblyName>15CEFlasher</AssemblyName>
     <RootNamespace>FifteenCEFlasher</RootNamespace>
     <Version>1.2.0</Version>
-    <FileVersion>1.2.0.111</FileVersion>
-    <InformationalVersion>1.2.0+111</InformationalVersion>
+    <FileVersion>1.2.0.112</FileVersion>
+    <InformationalVersion>1.2.0+112</InformationalVersion>
     <AssemblyVersion>1.2.0.0</AssemblyVersion>
     <Product>15CE Flasher</Product>
     <Company>Mach II Labs</Company>
-    <Description>Flash HP 15c CE firmware on Windows</Description>
+    <Description>Flash post-2015 Voyager calculator firmware on Windows</Description>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
     <ItemGroup>

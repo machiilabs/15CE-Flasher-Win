@@ -15,7 +15,7 @@
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="15CE Flasher" FontSize="28" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+            <TextBlock x:Name="HeadingText" Text="15CE Flasher" FontSize="28" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
             <TextBlock x:Name="SubtitleText" Text="Mach II Labs · Windows" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
         </StackPanel>
 

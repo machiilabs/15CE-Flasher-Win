@@ -8,8 +8,8 @@ on:
 
 env:
   APP_VERSION: "1.2.0"
-  APP_BUILD: "111"
-  CDN_FILENAME: "15CEFlasher-Win-1.2.0-111.exe"
+  APP_BUILD: "112"
+  CDN_FILENAME: "15CEFlasher-Win-1.2.0-112.exe"
 
 jobs:
   build:

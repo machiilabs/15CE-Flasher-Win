@@ -262,6 +262,28 @@ public class FirmwareAssessmentTests
     }
 
     [Fact]
+    public void SummaryDropsSafeToProceed()
+    {
+        var backup = Backup(0x0A0A);
+        Assert.Contains("safe to proceed", backup.Message);
+        Assert.DoesNotContain("safe to proceed", backup.Summary);
+        Assert.EndsWith("backup and restore.", backup.Summary);
+
+        var checkedFile = new FirmwareFileAssessment(0x0A0A, Backup(0x9090));
+        Assert.False(checkedFile.IsCaution);
+        Assert.Contains("safe to proceed", checkedFile.Message);
+        Assert.Equal($"Checksum 0A0Ah: {KnownFirmware.Find(0x0A0A)!.DisplayName}.", checkedFile.Summary);
+    }
+
+    [Fact]
+    public void CautionWhenModelCannotBeConfirmed()
+    {
+        Assert.True(new FirmwareFileAssessment(0x0E0E, backup: null).IsCaution);
+        Assert.True(new FirmwareFileAssessment(0x0E0E, Backup(0x9090)).IsCaution);
+        Assert.True(new FirmwareFileAssessment(0x1212, Backup(0x9090)).IsCaution);
+    }
+
+    [Fact]
     public void OtherModelNamesBothModels()
     {
         var assessment = new FirmwareFileAssessment(0x0E0E, Backup(0x9090));

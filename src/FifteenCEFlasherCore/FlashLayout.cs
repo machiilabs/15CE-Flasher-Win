@@ -1,6 +1,6 @@
 namespace FifteenCEFlasherCore;
 
-/// <summary>ATSAM4L flash map used by the HP 15C Collector's Edition.</summary>
+/// <summary>ATSAM4L flash map used by the HP 15c Collector's Edition.</summary>
 public static class FlashLayout
 {
     public const uint BootloaderStart = 0x0000;
