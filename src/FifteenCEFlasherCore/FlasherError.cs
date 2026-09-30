@@ -49,7 +49,7 @@ public sealed class FlasherError : Exception
 
     public static FlasherError UnsupportedDevice(string name, uint cidr, uint exid) =>
         new(FlasherErrorKind.UnsupportedDevice,
-            $"Unsupported chip {name} (CIDR=0x{cidr:X8} EXID=0x{exid:X8}). This tool is for the HP 15C Collector's Edition (ATSAM4LC2C).");
+            $"Unsupported chip {name} (CIDR=0x{cidr:X8} EXID=0x{exid:X8}). This tool is for post-2015 Voyager calculators (15c CE, 16c CE, 12c) with an ATSAM4LC2C.");
 
     public static FlasherError VerifyMismatch() =>
         new(FlasherErrorKind.VerifyMismatch,

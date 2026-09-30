@@ -141,6 +141,14 @@ public sealed class Flasher
 
     public byte[] Read(string filePath, SambaClient? client = null, Action<double, FlashProgressPhase>? progress = null)
     {
+        var saved = ReadApplication(client, progress);
+        File.WriteAllBytes(filePath, saved);
+        return saved;
+    }
+
+    /// <summary>Reads the application region (0x04000, 112 KB) without writing a file.</summary>
+    public byte[] ReadApplication(SambaClient? client = null, Action<double, FlashProgressPhase>? progress = null)
+    {
         byte[] saved = [];
         WithClient(client, samba =>
         {
@@ -150,7 +158,6 @@ public sealed class Flasher
                 throw FlasherError.UnsupportedDevice(identity.Name, identity.Cidr, identity.Exid);
 
             saved = flash.ReadApplication(f => progress?.Invoke(f, FlashProgressPhase.Reading));
-            File.WriteAllBytes(filePath, saved);
         });
         return saved;
     }

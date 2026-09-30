@@ -49,6 +49,9 @@ public partial class MainWindow : Window
 
     private void UpdateUi()
     {
+        // Follows the detected model while the app is open; the app's own name stays 15CE Flasher.
+        Title = _store.AppTitle;
+        HeadingText.Text = _store.AppTitle;
         StatusText.Text = _store.StatusMessage;
         DetailText.Text = _store.DetailMessage;
         ProgressBar.Value = _store.Progress;
@@ -72,7 +75,7 @@ public partial class MainWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = "Flash HP 15c CE firmware on Windows.",
+            Text = "Native SAM-BA programmer for the post-2015 Voyager series.",
             FontSize = 18,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)FindResource("InkBrush"),
@@ -363,11 +366,20 @@ public partial class MainWindow : Window
                 break;
         }
 
+        if (step == WizardStep.Firmware && _store.BackupAssessment is { } current)
+            panel.Children.Add(FirmwareMessageBox(
+                [("Your current firmware:", current.Summary)],
+                caution: !current.IsRecognized,
+                tone: MessageTone.CarriedOver));
+
+        if (step == WizardStep.Flash)
+            AddFlashFirmwareSummary(panel);
+
         foreach (var line in StepBodyLines(step))
             panel.Children.Add(BodyText(line));
 
         if (step == WizardStep.Cable)
-            panel.Children.Add(WarningBox("Use the POGO cable only on the HP 15C Collector’s Edition. This app will not flash other calculators. Do not use the cable on an HP 15C Limited Edition, a pre-2015 12C, an HP 20b, or an HP 30b, as it could permanently damage your calculator."));
+            panel.Children.Add(WarningBox("Use the POGO cable only on post-2015 Voyager calculators (15c CE, 16c CE, 12c). Do not use the cable on an HP 15c Limited Edition, a pre-2015 12c, an HP 20b, or an HP 30b, as it could permanently damage your calculator."));
 
         if (_store.SelectedMode == AppMode.Demo && step == WizardStep.Cable)
             panel.Children.Add(MutedText("DEMO uses a simulated calculator. You do not need a cable. Follow the same steps so FLASH is familiar later."));
@@ -380,46 +392,62 @@ public partial class MainWindow : Window
             var expected = VoyagerFirmwareChecksum.TestMenuDisplay(_store.FirmwareAssessment.Displayed);
             var shortForm = VoyagerFirmwareChecksum.Formatted(_store.FirmwareAssessment.Displayed);
             panel.Children.Add(BodyText($"You should see {expected}."));
-            panel.Children.Add(BodyText($"If you received the expected checksum of {shortForm}, the firmware update succeeded."));
+            panel.Children.Add(BodyText($"If you received the expected checksum of {shortForm}, then congratulations — you have successfully updated the firmware on your {_store.FlashedModelName ?? "calculator"}."));
         }
 
         switch (step)
         {
             case WizardStep.Backup:
+                if (_store.CurrentFirmware is null || _store.BackupAssessment is null)
+                {
+                    if (_store.Wizard.IsBusy)
+                    {
+                        panel.Children.Add(BodyText("Checking the firmware on the calculator…"));
+                    }
+                    else
+                    {
+                        panel.Children.Add(BodyText("Read the firmware on the calculator to see which version it has."));
+                        panel.Children.Add(MakeActionButton("Check firmware", async () => await _store.CheckCurrentFirmwareAsync(), primary: true));
+                    }
+                    break;
+                }
+
+                var assessment = _store.BackupAssessment;
+                panel.Children.Add(FirmwareMessageBox(
+                    [("Your current firmware:", assessment.Message)],
+                    caution: !assessment.IsRecognized));
+                panel.Children.Add(BodyText("Do you want to save a backup of this firmware? You can use it to restore the calculator later."));
                 panel.Children.Add(MakeActionButton(
                     "Save backup…",
-                    async () => await _store.SaveBackupAsync(),
+                    _store.SaveBackup,
                     primary: !_store.Wizard.BackupResolved || _store.BackupPath is null,
                     enabled: !_store.Wizard.IsBusy));
                 panel.Children.Add(MakeActionButton("Skip backup", _store.SkipBackup, enabled: !_store.Wizard.IsBusy));
                 if (_store.BackupPath is not null)
-                    panel.Children.Add(new TextBlock
-                    {
-                        Text = _store.BackupPath,
-                        TextWrapping = TextWrapping.Wrap,
-                        Margin = new Thickness(0, 8, 0, 0),
-                        Foreground = (Brush)FindResource("MutedBrush"),
-                    });
-                if (_store.BackupAssessment is not null)
-                    panel.Children.Add(new TextBlock { Text = _store.BackupAssessment.Message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
+                    panel.Children.Add(FirmwareMessageBox(
+                        [("", $"Backup saved as {System.IO.Path.GetFileName(_store.BackupPath)}.")],
+                        caution: false));
+                if (_store.BackupSkipped)
+                    panel.Children.Add(FirmwareMessageBox(
+                        [("", "Backup skipped. You may not have a copy of this firmware to restore later.")],
+                        caution: false,
+                        tone: MessageTone.Amber));
                 break;
             case WizardStep.Firmware:
                 panel.Children.Add(MakeActionButton("Choose firmware…", _store.PickFirmware));
-                if (_store.FirmwareAssessment is not null)
-                    panel.Children.Add(new TextBlock { Text = _store.FirmwareAssessment.Message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
+                if (_store.FirmwarePath is not null)
+                    panel.Children.Add(MutedText(System.IO.Path.GetFileName(_store.FirmwarePath)));
+                if (_store.FirmwareAssessment is { } selected)
+                    panel.Children.Add(FirmwareMessageBox(
+                        [("Selected firmware:", selected.Message)],
+                        caution: selected.IsCaution));
                 break;
             case WizardStep.Flash:
                 var flashLabel = _store.SelectedMode == AppMode.Demo
                     ? "Flash simulated calculator"
                     : "Flash calculator";
                 if (_store.Wizard.FlashSucceeded)
-                    panel.Children.Add(new TextBlock
-                    {
-                        Text = "Flashed and verified.",
-                        FontWeight = FontWeights.SemiBold,
-                        Foreground = Brushes.DarkGreen,
-                        Margin = new Thickness(0, 0, 0, 8),
-                    });
+                    panel.Children.Add(FirmwareMessageBox([("", "Flashed and verified.")], caution: false));
                 if (!_store.Wizard.IsBusy)
                     panel.Children.Add(MakeActionButton(
                         flashLabel,
@@ -656,7 +684,7 @@ public partial class MainWindow : Window
         var demo = _store.SelectedMode == AppMode.Demo;
         var title = demo ? "Flash the simulated calculator?" : "Flash the calculator?";
         var message = demo
-            ? "DEMO writes only the simulated calculator on this PC. A real HP 15C is not changed.\n\nWrite starts at address 0x04000."
+            ? "DEMO writes only the simulated calculator on this PC. A real calculator is not changed.\n\nWrite starts at address 0x04000."
             : "FLASH writes a real calculator. User memory will be wiped. The bootloader at 0x0000–0x3FFF is not overwritten.\n\nWrite starts at address 0x04000.";
 
         return MessageBox.Show(
@@ -679,10 +707,8 @@ public partial class MainWindow : Window
             "On the cable's switch box, hold ERASE, press RESET, then release ERASE. The display stays off. The calculator's ON button is ignored in this state.",
             "Once the calculator is recognized (“Connected: ATSAM4LC2C” is shown), continue with the next step.",
         ],
-        WizardStep.Backup =>
-        [
-            "Save a copy of the currently installed firmware in case you want to restore it later. Choosing a location reads the calculator immediately.",
-        ],
+        // Step 3 text depends on the firmware check, so the step builds it.
+        WizardStep.Backup => [],
         WizardStep.Firmware =>
         [
             "Choose a 114,688 (0x1C000) byte file with .bin extension. This app does not download HP firmware.",
@@ -764,6 +790,103 @@ public partial class MainWindow : Window
             Foreground = (Brush)FindResource("MutedBrush"),
             Margin = new Thickness(0, 0, 0, 10),
         };
+
+    /// <summary>
+    /// Message colors: green and amber for a message appearing for the first time, blue (the
+    /// current sidebar step's colors) for a message carried over from an earlier step.
+    /// </summary>
+    private enum MessageTone
+    {
+        Green,
+        /// <summary>A caution, or a choice worth noting. Not an error.</summary>
+        Amber,
+        CarriedOver,
+    }
+
+    /// <summary>Step 5 carries both firmware messages from step 4 into one box.</summary>
+    private void AddFlashFirmwareSummary(StackPanel panel)
+    {
+        var current = _store.BackupAssessment;
+        var selected = _store.FirmwareAssessment;
+        var lines = new List<(string Label, string Message)>();
+        if (current is not null)
+            lines.Add(("Your current firmware:", current.Summary));
+        if (selected is not null)
+            lines.Add(("Selected firmware:", selected.Summary));
+        if (lines.Count == 0)
+            return;
+        panel.Children.Add(FirmwareMessageBox(
+            lines,
+            caution: (current is not null && !current.IsRecognized) || (selected?.IsCaution ?? false),
+            tone: MessageTone.CarriedOver));
+    }
+
+    /// <summary>
+    /// Step 3–5 messages. Without a tone, a new message is green, or amber when it is a caution.
+    /// A caution also adds a warning icon.
+    /// </summary>
+    private UIElement FirmwareMessageBox(IReadOnlyList<(string Label, string Message)> lines, bool caution, MessageTone? tone = null)
+    {
+        Color ink, accent;
+        byte fillAlpha = 36;
+        switch (tone ?? (caution ? MessageTone.Amber : MessageTone.Green))
+        {
+            case MessageTone.Amber:
+                ink = Color.FromRgb(115, 64, 0);
+                accent = Color.FromRgb(245, 158, 10);
+                break;
+            case MessageTone.CarriedOver:
+                ink = Color.FromRgb(26, 26, 26);
+                accent = Color.FromRgb(37, 99, 235);
+                fillAlpha = 26;
+                break;
+            default:
+                ink = Color.FromRgb(13, 84, 36);
+                accent = SidebarGreen.Color;
+                break;
+        }
+
+        var text = new StackPanel();
+        foreach (var (label, message) in lines)
+        {
+            var block = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(ink),
+                Margin = new Thickness(0, text.Children.Count == 0 ? 0 : 6, 0, 0),
+            };
+            if (label.Length > 0)
+                block.Inlines.Add(new System.Windows.Documents.Run(label + " ") { FontWeight = FontWeights.Bold });
+            block.Inlines.Add(new System.Windows.Documents.Run(message));
+            text.Children.Add(block);
+        }
+
+        var row = new DockPanel();
+        if (caution)
+        {
+            var icon = new TextBlock
+            {
+                Text = "⚠",
+                Foreground = new SolidColorBrush(Color.FromRgb(234, 88, 12)),
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+            DockPanel.SetDock(icon, Dock.Left);
+            row.Children.Add(icon);
+        }
+        row.Children.Add(text);
+
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(fillAlpha, accent.R, accent.G, accent.B)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(217, accent.R, accent.G, accent.B)),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 0, 0, 12),
+            Child = row,
+        };
+    }
 
     private UIElement WarningBox(string text)
     {

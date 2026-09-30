@@ -11,6 +11,9 @@
     <InternalsVisibleTo Include="FifteenCEFlasherCore.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="known-firmware.json" LogicalName="known-firmware.json" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>

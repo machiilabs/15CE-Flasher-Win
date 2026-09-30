@@ -55,8 +55,41 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
     public string? BackupPath { get; private set; }
     public string? PagePreviewHeader { get; private set; }
     public IEnumerable<string> PagePreviewLines { get; private set; } = [];
+    /// <summary>Firmware read from the calculator on step 3, before the user decides whether to save it.</summary>
+    public byte[]? CurrentFirmware { get; private set; }
+    public bool BackupSkipped { get; private set; }
     public BackupChecksumAssessment? BackupAssessment { get; private set; }
     public FirmwareFileAssessment? FirmwareAssessment { get; private set; }
+
+    /// <summary>
+    /// Window title and heading while the app is open. FLASH and DEMO follow the calculator found
+    /// on step 3; BATCH follows the firmware every unit receives. Welcome and Connection Probe stay
+    /// 15CE Flasher, and so does the app's own name.
+    /// </summary>
+    public string AppTitle
+    {
+        get
+        {
+            string? model = null;
+            if (!ShowWelcome && SelectedMode != AppMode.Probe)
+                model = SelectedMode == AppMode.Batch
+                    ? FirmwareAssessment?.Known?.Model
+                    : BackupAssessment?.Known?.Model;
+            return model switch
+            {
+                "HP 16c Collector’s Edition" => "16CE Flasher",
+                "HP 12c" => "12c Flasher",
+                _ => "15CE Flasher",
+            };
+        }
+    }
+
+    /// <summary>The calculator named by the flashed file, or else by the firmware found on step 3.</summary>
+    public string? FlashedModelName =>
+        FirmwareAssessment?.Known?.Model ?? BackupAssessment?.Known?.Model;
+
+    /// <summary>True while a file dialog is open. The connection poll pauses so it cannot block the dialog.</summary>
+    private bool _dialogOpen;
 
     public BatchPhase BatchPhase { get; private set; } = BatchPhase.Setup;
     public int BatchUnitNumber { get; private set; }
@@ -161,12 +194,29 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
     {
         Wizard.Advance();
         Notify(nameof(Wizard));
+        if (Wizard.Step == WizardStep.Backup && CurrentFirmware is null && !Wizard.BackupResolved)
+            _ = CheckCurrentFirmwareAsync();
     }
 
     public void WizardBack()
     {
+        if (Wizard.Step == WizardStep.ProgrammingMode)
+            ClearCurrentFirmware();
         Wizard.GoBack();
-        Notify(nameof(Wizard));
+        NotifyAll();
+    }
+
+    private bool? RunDialog(CommonDialog dialog)
+    {
+        _dialogOpen = true;
+        try
+        {
+            return dialog.ShowDialog();
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
     }
 
     public void PickFirmware()
@@ -176,7 +226,7 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
             Filter = "Firmware (*.bin)|*.bin|All files|*.*",
             Title = "Choose firmware file",
         };
-        if (dialog.ShowDialog() != true)
+        if (RunDialog(dialog) != true)
             return;
 
         try
@@ -184,10 +234,11 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
             FirmwareImage.Validate(File.ReadAllBytes(dialog.FileName));
             FirmwarePath = dialog.FileName;
             Wizard.FirmwareOk = true;
+            // The step 3 check knows the calculator's firmware even when the backup was skipped.
             FirmwareAssessment = VoyagerFirmwareChecksum.FirmwareFileAssessment(
                 File.ReadAllBytes(dialog.FileName),
                 BackupAssessment,
-                backupSkipped: BackupPath is null);
+                backupSkipped: false);
 
             if (SelectedMode == AppMode.Batch)
                 SaveBatchFirmwarePath(dialog.FileName);
@@ -200,26 +251,42 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public async Task SaveBackupAsync()
+    /// <summary>Saves the firmware already read on step 3. Nothing is read from the calculator again.</summary>
+    public void SaveBackup()
     {
+        if (CurrentFirmware is null || BackupAssessment is null)
+            return;
+
         var dialog = new SaveFileDialog
         {
             Filter = "Firmware backup (*.bin)|*.bin",
-            FileName = $"hp15c-backup-{DateTime.Now:yyyyMMdd-HHmmss}.bin",
+            FileName = BackupAssessment.DefaultBackupFileName(DateTime.Now),
             Title = "Save backup",
         };
-        if (dialog.ShowDialog() != true)
+        if (RunDialog(dialog) != true)
             return;
 
+        try
+        {
+            File.WriteAllBytes(dialog.FileName, CurrentFirmware);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Backup failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
         BackupPath = dialog.FileName;
+        BackupSkipped = false;
+        Wizard.BackupResolved = true;
+        StatusMessage = "Backup saved";
         NotifyAll();
-        await RunBackupAsync();
     }
 
     public void SkipBackup()
     {
         BackupPath = null;
-        BackupAssessment = null;
+        BackupSkipped = true;
         Wizard.BackupResolved = true;
         NotifyAll();
     }
@@ -244,7 +311,7 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
         };
         if (!string.IsNullOrEmpty(BatchBackupFolder))
             dialog.InitialDirectory = BatchBackupFolder;
-        if (dialog.ShowDialog() != true)
+        if (RunDialog(dialog) != true)
             return;
 
         BatchBackupFolder = dialog.FolderName;
@@ -305,33 +372,34 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
         Application.Current.Shutdown();
     }
 
-    public async Task RunBackupAsync()
+    /// <summary>Step 3: read the firmware on the calculator and name it from the known list.</summary>
+    public async Task CheckCurrentFirmwareAsync()
     {
         if (Wizard.IsBusy)
             return;
 
+        ClearCurrentFirmware();
         Wizard.IsBusy = true;
-        StatusMessage = "Reading firmware…";
+        StatusMessage = "Checking current firmware…";
         Progress = 0;
         NotifyAll();
         try
         {
-            await Task.Run(() =>
+            var data = await Task.Run(() =>
             {
-                var path = BackupPath ?? throw new InvalidOperationException("No backup path");
                 var client = EnsureConnected();
-                Flasher.Read(path, client, (f, _) => ReportProgress(f, "Reading firmware…"));
+                return Flasher.ReadApplication(client, (f, _) => ReportProgress(f, "Checking current firmware…"));
             });
 
-            var data = File.ReadAllBytes(BackupPath!);
+            CurrentFirmware = data;
             BackupAssessment = VoyagerFirmwareChecksum.BackupAssessment(data);
-            Wizard.BackupResolved = true;
-            StatusMessage = "Backup saved";
-            DetailMessage = BackupAssessment.Message;
+            RefreshSelectedFirmwareAssessment();
+            StatusMessage = "Firmware checked";
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Backup failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            Disconnect();
+            MessageBox.Show(ex.Message, "Firmware check failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
@@ -339,6 +407,26 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
             Progress = 0;
             NotifyAll();
         }
+    }
+
+    private void ClearCurrentFirmware()
+    {
+        CurrentFirmware = null;
+        BackupAssessment = null;
+        BackupPath = null;
+        BackupSkipped = false;
+        Wizard.BackupResolved = false;
+        RefreshSelectedFirmwareAssessment();
+    }
+
+    private void RefreshSelectedFirmwareAssessment()
+    {
+        if (FirmwarePath is null || !File.Exists(FirmwarePath))
+            return;
+        FirmwareAssessment = VoyagerFirmwareChecksum.FirmwareFileAssessment(
+            File.ReadAllBytes(FirmwarePath),
+            BackupAssessment,
+            backupSkipped: false);
     }
 
     public async Task RunFlashAsync()
@@ -404,7 +492,7 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
 
     private void RefreshConnection()
     {
-        if (ShowWelcome)
+        if (ShowWelcome || _dialogOpen)
             return;
 
         if ((SelectedMode is AppMode.Flash or AppMode.Demo) && Wizard.Step == WizardStep.Cable)
@@ -578,6 +666,8 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
         Wizard.FirmwareOk = false;
         Wizard.FlashSucceeded = false;
         Wizard.IsBusy = false;
+        CurrentFirmware = null;
+        BackupSkipped = false;
         BackupAssessment = null;
         FirmwareAssessment = null;
         PagePreviewHeader = null;
@@ -655,8 +745,11 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
         Notify(nameof(BackupPath));
         Notify(nameof(PagePreviewHeader));
         Notify(nameof(PagePreviewLines));
+        Notify(nameof(CurrentFirmware));
+        Notify(nameof(BackupSkipped));
         Notify(nameof(BackupAssessment));
         Notify(nameof(FirmwareAssessment));
+        Notify(nameof(AppTitle));
         Notify(nameof(BatchPhase));
         Notify(nameof(BatchUnitNumber));
         Notify(nameof(BatchBackupFolder));
