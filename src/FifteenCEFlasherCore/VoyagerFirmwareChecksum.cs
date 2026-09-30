@@ -115,9 +115,9 @@ public sealed class FirmwareFileAssessment
                 FirmwareFileKind.AlreadyOnCalculator =>
                     $"Checksum {label}. This firmware is already on the calculator. You don’t need to install it again.",
                 FirmwareFileKind.OtherModel =>
-                    $"Checksum {label}: {Known!.DisplayName}. Your calculator has {OnCalculator!.ModelName} firmware, so this file is for a different model. Are you sure you want to install it?",
+                    $"Checksum {label}: {Known!.DisplayName}. Your calculator has {OnCalculator!.Model} firmware, so this file is for a different model. Are you sure you want to install it?",
                 FirmwareFileKind.Known when OnCalculator is null =>
-                    $"Checksum {label}: {Known!.DisplayName}. Make sure your calculator is an {Known.ModelName}.",
+                    $"Checksum {label}: {Known!.DisplayName}. Make sure your calculator is an {Known.Model}.",
                 FirmwareFileKind.Known =>
                     $"Checksum {label}: {Known!.DisplayName}. It is safe to proceed.",
                 _ =>

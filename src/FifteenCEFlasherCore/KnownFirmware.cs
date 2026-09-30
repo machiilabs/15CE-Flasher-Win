@@ -6,11 +6,8 @@ namespace FifteenCEFlasherCore;
 /// <summary>One firmware the app recognizes by its test-menu checksum.</summary>
 public sealed record KnownFirmwareEntry(ushort Checksum, string Model, string FileName, string Description)
 {
-    /// <summary>"HP 15c Collector’s Edition", "HP 16c Collector’s Edition", or "HP 12c".</summary>
-    public string ModelName => $"HP {Model}";
-
     /// <summary>Model and version, for example "HP 15c Collector’s Edition original firmware". Description never repeats the model.</summary>
-    public string DisplayName => $"{ModelName} {Description}";
+    public string DisplayName => $"{Model} {Description}";
 }
 
 /// <summary>
@@ -19,7 +16,8 @@ public sealed record KnownFirmwareEntry(ushort Checksum, string Model, string Fi
 /// </summary>
 public static class KnownFirmware
 {
-    public static readonly string[] Models = ["15c Collector’s Edition", "16c Collector’s Edition", "12c"];
+    /// <summary>Full model names including the manufacturer.</summary>
+    public static readonly string[] Models = ["HP 15c Collector’s Edition", "HP 16c Collector’s Edition", "HP 12c"];
 
     private static readonly Lazy<IReadOnlyList<KnownFirmwareEntry>> Entries = new(Load);
 

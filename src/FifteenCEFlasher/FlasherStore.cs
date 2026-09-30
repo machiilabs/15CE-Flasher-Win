@@ -77,8 +77,8 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
                     : BackupAssessment?.Known?.Model;
             return model switch
             {
-                "16c Collector’s Edition" => "16CE Flasher",
-                "12c" => "12c Flasher",
+                "HP 16c Collector’s Edition" => "16CE Flasher",
+                "HP 12c" => "12c Flasher",
                 _ => "15CE Flasher",
             };
         }
@@ -86,7 +86,7 @@ public sealed class FlasherStore : INotifyPropertyChanged, IDisposable
 
     /// <summary>The calculator named by the flashed file, or else by the firmware found on step 3.</summary>
     public string? FlashedModelName =>
-        FirmwareAssessment?.Known?.ModelName ?? BackupAssessment?.Known?.ModelName;
+        FirmwareAssessment?.Known?.Model ?? BackupAssessment?.Known?.Model;
 
     /// <summary>True while a file dialog is open. The connection poll pauses so it cannot block the dialog.</summary>
     private bool _dialogOpen;

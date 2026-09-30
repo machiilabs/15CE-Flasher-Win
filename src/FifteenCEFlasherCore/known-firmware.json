@@ -1,27 +1,27 @@
 {
-  "comment": "Firmware the app recognizes by the checksum the calculator shows in its test menu (2.C). Shared with the Windows app: keep both copies identical. model is “15c Collector’s Edition”, “16c Collector’s Edition”, or “12c”; the app shows “HP ” + model + description, so description never repeats the model. fileName starts the default backup name (lowercase letters, digits, hyphens); the app adds the checksum and date. List only publicly released firmware: never pre-release or advance copies.",
+  "comment": "Firmware the app recognizes by the checksum the calculator shows in its test menu (2.C). Shared with the Windows app: keep both copies identical. model is the full name including the manufacturer: “HP 15c Collector’s Edition”, “HP 16c Collector’s Edition”, or “HP 12c”. The app shows model + description, so description never repeats the model. fileName starts the default backup name (lowercase letters, digits, hyphens); the app adds the checksum and date. List only publicly released firmware: never pre-release or advance copies.",
   "firmware": [
     {
       "checksum": "0x9090",
-      "model": "15c Collector’s Edition",
+      "model": "HP 15c Collector’s Edition",
       "fileName": "hp15c-ce-original",
       "description": "original firmware"
     },
     {
       "checksum": "0x0A0A",
-      "model": "15c Collector’s Edition",
+      "model": "HP 15c Collector’s Edition",
       "fileName": "hp15c-ce-2024-06",
       "description": "June 2024 debounce, 16c mode fix, backup and restore"
     },
     {
       "checksum": "0x0E0E",
-      "model": "16c Collector’s Edition",
+      "model": "HP 16c Collector’s Edition",
       "fileName": "hp16c-ce-original",
       "description": "original firmware"
     },
     {
       "checksum": "0x8989",
-      "model": "16c Collector’s Edition",
+      "model": "HP 16c Collector’s Edition",
       "fileName": "hp16c-ce-extended-memory-stopwatch",
       "description": "Extended Memory and stopwatch"
     }

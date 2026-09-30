@@ -187,8 +187,8 @@ public class KnownFirmwareTests
     public void EmbeddedListLoads()
     {
         Assert.NotEmpty(KnownFirmware.All);
-        Assert.Equal("15c Collector’s Edition", KnownFirmware.Find(0x9090)?.Model);
-        Assert.Equal("16c Collector’s Edition", KnownFirmware.Find(0x0E0E)?.Model);
+        Assert.Equal("HP 15c Collector’s Edition", KnownFirmware.Find(0x9090)?.Model);
+        Assert.Equal("HP 16c Collector’s Edition", KnownFirmware.Find(0x0E0E)?.Model);
         Assert.Null(KnownFirmware.Find(0x1234));
     }
 
@@ -201,11 +201,12 @@ public class KnownFirmwareTests
     }
 
     [Theory]
-    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","fileName":"x","description":"a"},{"checksum":"9090","model":"15c Collector’s Edition","fileName":"x","description":"b"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"HP 15c Collector’s Edition","fileName":"x","description":"a"},{"checksum":"9090","model":"HP 15c Collector’s Edition","fileName":"x","description":"b"}]}""")]
     [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15C","fileName":"x","description":"a"}]}""")]
-    [InlineData("""{"firmware":[{"checksum":"0xZZ","model":"15c Collector’s Edition","fileName":"x","description":"a"}]}""")]
-    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","fileName":"HP 15c","description":"a"}]}""")]
-    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"15c Collector’s Edition","fileName":"x","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0xZZ","model":"HP 15c Collector’s Edition","fileName":"x","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"HP 15c Collector’s Edition","fileName":"HP 15c","description":"a"}]}""")]
+    [InlineData("""{"firmware":[{"checksum":"0x9090","model":"HP 15c Collector’s Edition","description":"a"}]}""")]
     public void ParseRejectsBadLists(string json)
     {
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
