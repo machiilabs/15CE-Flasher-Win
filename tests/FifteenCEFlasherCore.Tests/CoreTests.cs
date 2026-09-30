@@ -245,6 +245,8 @@ public class FirmwareAssessmentTests
     [InlineData(0x0A0A, 0x9090, FirmwareFileKind.Known)]
     [InlineData(0x9090, 0x0E0E, FirmwareFileKind.OtherModel)]
     [InlineData(0x0E0E, 0x0A0A, FirmwareFileKind.OtherModel)]
+    [InlineData(0x0E0E, 0x8989, FirmwareFileKind.Known)]
+    [InlineData(0x8989, 0x9090, FirmwareFileKind.OtherModel)]
     [InlineData(0x1212, 0x0E0E, FirmwareFileKind.Known)]
     [InlineData(0x9090, 0x1212, FirmwareFileKind.Unrecognized)]
     public void FirmwareFileAgainstBackup(int onCalculator, int file, FirmwareFileKind expected)

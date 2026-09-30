@@ -18,6 +18,12 @@
       "model": "16c Collector’s Edition",
       "fileName": "hp16c-ce-original",
       "description": "original firmware"
+    },
+    {
+      "checksum": "0x8989",
+      "model": "16c Collector’s Edition",
+      "fileName": "hp16c-ce-extended-memory-stopwatch",
+      "description": "Extended Memory and stopwatch"
     }
   ]
 }
